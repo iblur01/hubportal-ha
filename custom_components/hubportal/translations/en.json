@@ -3,23 +3,32 @@
     "step": {
       "user": {
         "title": "Connect a Portal",
-        "description": "Choose a Portal already registered with mobile_app. Sensors and the notify service are discovered automatically.",
+        "description": "Set the household, failover timeout, and starting priority. Every discovered Portal receives a request; declining closes only that Portal's sheet.",
         "data": {
           "foyer": "Household identifier",
-          "mobile_device_id": "Discovered Portal",
-          "priority": "Priority (lower comes first)",
+          "priority": "Starting priority (lower comes first)",
           "master_timeout": "Seconds without updates before automatic failover"
         }
       }
     },
+    "progress": {
+      "waiting_for_portal": "Waiting for one of the {portal_count} discovered Portals to accept. Other requests stay open until an acceptance or expiration."
+    },
     "error": {
       "service_mobile_app_requis": "The service must be a notify.mobile_app_* service.",
+      "foyer_invalide": "The household must contain at least one letter or number.",
       "nom_portal_invalide": "The name must contain letters or numbers."
     },
     "abort": {
       "already_configured": "This Portal is already configured for this household.",
       "no_portals_found": "No Portal found. Check that mobile_app is set up and the Portal has published its sensors.",
-      "device_not_found": "This Portal is no longer present in mobile_app."
+      "device_not_found": "This Portal is no longer present in mobile_app.",
+      "no_notify_services": "No notify.mobile_app_* service is available for the discovered Portals.",
+      "pairing_timeout": "No Portal accepted the request before it expired.",
+      "pairing_transport_error": "The pairing request could not be delivered to any Portal.",
+      "pairing_cancelled": "The pairing request was cancelled.",
+      "group_creation_failed": "A Portal accepted, but Home Assistant could not create every household entry.",
+      "import_data_missing": "The secondary Portal data is missing."
     }
   },
   "options": {

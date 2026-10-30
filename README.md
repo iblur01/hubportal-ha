@@ -1,15 +1,15 @@
 # HubPortal pour Home Assistant
 
-Intégration personnalisée HACS pour exposer les appareils Portal Hub. Cette première version relaie les commandes via les services `notify.mobile_app_*` natifs du Portal. Elle n’ouvre aucun port et ne stocke pas de jeton HA.
+Intégration personnalisée HACS pour exposer les appareils Portal Hub. Elle requiert Home Assistant 2024.8 ou plus récent, relaie les commandes via les services `notify.mobile_app_*` natifs du Portal, n’ouvre aucun port et ne stocke pas de jeton HA.
 
 ## Installation HACS
 
 1. Dans HACS, choisissez **Dépôts personnalisés** et ajoutez `https://github.com/iblur01/hubportal-ha` avec la catégorie **Integration**.
 2. Installez **HubPortal**, puis redémarrez Home Assistant.
 3. Ouvrez **Paramètres → Appareils et services → Ajouter une intégration → HubPortal**.
-4. Choisissez le Portal détecté et donnez-lui un identifiant de foyer. HA remplit le service `mobile_app` et les entity_id des capteurs automatiquement. Pour les autres appareils du même foyer, ajoutez une entrée et réutilisez le même identifiant.
+4. Saisissez l’identifiant du foyer, la priorité initiale et le délai de bascule. Home Assistant envoie une demande de consentement à tous les Portals détectés. Acceptez-la sur l’un d’eux; HA crée alors une entrée pour chaque Portal du foyer et donne la priorité initiale à celui qui a accepté.
 
-Le flow de configuration s’exécute dans HA : aucun identifiant ou mot de passe HA n’est demandé. Il détecte les Portals déjà inscrits dans `mobile_app`; la fenêtre d’acceptation sur le Portal façon WPS nécessite encore la commande et le retour d’API décrits dans [`docs/PORTAL_API_REQUESTS.md`](docs/PORTAL_API_REQUESTS.md). La sécurité du canal dépend de l’authentification native HA et de `mobile_app`.
+Le flow de configuration s’exécute dans HA : aucun identifiant ou mot de passe HA n’est demandé. Il détecte les Portals déjà inscrits dans `mobile_app`. Le jumelage groupé requiert un build Qt du Portal qui prend en charge `command_hubportal_pairing_request`; sur un ancien build, la fenêtre ne peut pas s’afficher.
 
 ## Entités
 
@@ -46,7 +46,7 @@ Ces services ciblent le maître courant. Aucun service média de groupe n’est 
 
 ## Limites connues
 
-Le build mobile_app actuel ne fournit pas de heartbeat dédié ni d’accusé de réception des commandes. `Disponibilité` est donc une estimation basée sur la fraîcheur des entités source, et un appel `notify` réussi prouve uniquement que HA a accepté l’appel. Les commandes médias directes et les commandes HTTP nécessitent une API Portal à ajouter ultérieurement; voir [`docs/PORTAL_API_REQUESTS.md`](docs/PORTAL_API_REQUESTS.md) et [`docs/CONTRACT.md`](docs/CONTRACT.md).
+Le build mobile_app actuel ne fournit pas de heartbeat dédié ni d’accusé de réception des commandes ordinaires. `Disponibilité` est donc une estimation basée sur la fraîcheur des entités source, et un appel `notify` réussi prouve uniquement que HA a accepté l’appel. La demande de jumelage expire après 120 secondes; si tous les Portals refusent ou restent silencieux, aucune entrée n’est créée. Les commandes médias directes et les commandes HTTP nécessitent une API Portal à ajouter ultérieurement; voir [`docs/PORTAL_API_REQUESTS.md`](docs/PORTAL_API_REQUESTS.md) et [`docs/CONTRACT.md`](docs/CONTRACT.md).
 
 ## Développement
 

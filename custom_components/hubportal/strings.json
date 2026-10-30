@@ -3,23 +3,32 @@
     "step": {
       "user": {
         "title": "Connecter un Portal",
-        "description": "Choisissez un Portal déjà enregistré dans mobile_app. Les capteurs et le service notify sont détectés automatiquement.",
+        "description": "Définissez le foyer, le délai de bascule et la priorité initiale. Tous les Portals détectés recevront une demande; un refus ferme uniquement la feuille du Portal concerné.",
         "data": {
           "foyer": "Identifiant du foyer",
-          "mobile_device_id": "Portal découvert",
-          "priority": "Priorité (plus petite = préférée)",
+          "priority": "Priorité de base (plus petite = préférée)",
           "master_timeout": "Silence avant bascule automatique (secondes)"
         }
       }
     },
+    "progress": {
+      "waiting_for_portal": "En attente de l’accord d’un des {portal_count} Portals détectés. Les autres demandes restent ouvertes jusqu’à un accord ou leur expiration."
+    },
     "error": {
       "service_mobile_app_requis": "Le service doit être un service notify.mobile_app_*.",
+      "foyer_invalide": "Le foyer doit contenir au moins une lettre ou un chiffre.",
       "nom_portal_invalide": "Le nom doit contenir des lettres ou des chiffres."
     },
     "abort": {
       "already_configured": "Ce Portal est déjà configuré dans ce foyer.",
       "no_portals_found": "Aucun Portal détecté. Vérifiez que mobile_app est configuré et que le Portal a publié ses capteurs.",
-      "device_not_found": "Ce Portal n’est plus présent dans mobile_app."
+      "device_not_found": "Ce Portal n’est plus présent dans mobile_app.",
+      "no_notify_services": "Aucun service notify.mobile_app_* n’est disponible pour les Portals détectés.",
+      "pairing_timeout": "Aucun Portal n’a accepté la demande avant son expiration.",
+      "pairing_transport_error": "La demande de jumelage n’a pu être envoyée à aucun Portal.",
+      "pairing_cancelled": "La demande de jumelage a été annulée.",
+      "group_creation_failed": "L’accord a été reçu, mais Home Assistant n’a pas pu créer toutes les entrées du foyer.",
+      "import_data_missing": "Les données du Portal secondaire sont absentes."
     }
   },
   "options": {

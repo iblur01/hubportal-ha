@@ -193,7 +193,12 @@ def test_bascule_automatique_apres_silence() -> None:
 @pytest.mark.asyncio
 async def test_decouverte_mobile_app_et_flux_automatique(hass: HomeAssistant) -> None:
     _register_mobile_app_portal(hass)
-    hass.services.async_register("notify", "mobile_app_portal_salon", lambda call: None)
+    notify_calls = []
+
+    async def notify(call):
+        notify_calls.append(call.data)
+
+    hass.services.async_register("notify", "mobile_app_portal_salon", notify)
     discovered = discover_portals(hass)
     assert discovered["device-portal-01"]["screen_entity"] == "binary_sensor.portal_salon_screen_on"
     assert discovered["device-portal-01"]["timer_entity"] == "sensor.portal_salon_portal_timer"
@@ -201,8 +206,30 @@ async def test_decouverte_mobile_app_et_flux_automatique(hass: HomeAssistant) ->
     assert result["type"] == "form"
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"foyer": "maison", "mobile_device_id": "device-portal-01", "priority": 1, "master_timeout": 90},
+        {"foyer": "maison", "priority": 1, "master_timeout": 90},
     )
+    assert result["type"] == "progress"
+    pairing_request = notify_calls[0]["data"]["command"]
+    assert notify_calls[0]["message"] == "command_hubportal_pairing_request"
+    hass.bus.async_fire(
+        "hubportal_pairing_decision",
+        {
+            "contract_version": 1,
+            "request_id": pairing_request["request_id"],
+            "device_id": "device-portal-01",
+            "decision": "accepted",
+        },
+    )
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
     assert result["type"] == "create_entry"
     assert result["data"]["notify_service"] == "mobile_app_portal_salon"
     assert result["data"]["screen_entity"] == "binary_sensor.portal_salon_screen_on"
+    assert notify_calls[-1]["message"] == "command_hubportal_pairing_resolved"
+
+
+@pytest.mark.asyncio
+async def test_config_flow_sans_portal_affiche_une_explication(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] == "abort"
+    assert result["reason"] == "no_portals_found"
