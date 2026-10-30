@@ -231,5 +231,7 @@ async def test_decouverte_mobile_app_et_flux_automatique(hass: HomeAssistant) ->
 @pytest.mark.asyncio
 async def test_config_flow_sans_portal_affiche_une_explication(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] == "form"  # le formulaire reste ouvert : l'adresse du maillage y est saisissable
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"foyer": "maison"})
     assert result["type"] == "abort"
     assert result["reason"] == "no_portals_found"

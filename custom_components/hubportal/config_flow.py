@@ -152,7 +152,8 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._port = MESH_PORT
             return await self.async_step_mesh_connect()
         portals = discover_portals(self.hass)
-        if not portals:
+        # Saisie v1 sans Portal mobile_app : abandon ; le formulaire reste ouvert pour l'adresse du maillage.
+        if not portals and user_input is not None:
             return self.async_abort(reason="no_portals_found")
 
         missing_notify = any(
