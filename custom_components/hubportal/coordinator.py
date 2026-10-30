@@ -7,22 +7,32 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_MASTER_TIMEOUT,
+    CONF_NETWORK_ID,
     CONF_PRIORITY,
     DEFAULT_MASTER_TIMEOUT,
     DOMAIN,
     SOURCES,
     UPDATE_INTERVAL,
 )
-from .transport import MobileAppTransport, PortalTransport
+from .mesh import MeshClient
+from .transport import MeshTransport, MobileAppTransport, PortalTransport
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def ensure_command_allowed(message: str, command: Any, action_lock: Any) -> None:
+    """Refus communs aux transports : déverrouillage et commandes pendant le verrou d'actions."""
+    if message == "command_action_lock" and command in (False, "off"):
+        raise HomeAssistantError("Déverrouillage refusé : confirmez cette action depuis le Portal.")
+    if message != "command_action_lock" and action_lock == "on":
+        raise HomeAssistantError("Commandes refusées : le verrou d’actions du Portal est activé.")
 
 
 class PortalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -56,6 +66,10 @@ class PortalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return result
 
     @property
+    def unique_prefix(self) -> str:
+        return self.entry.entry_id
+
+    @property
     def portal_name(self) -> str:
         return self.entry.data["portal_name"]
 
@@ -83,12 +97,60 @@ class PortalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_send_command(self, message: str, command: Any = None) -> None:
         """Appelle le service mobile_app avec délai et erreur explicite."""
-        if message == "command_action_lock" and command in (False, "off"):
-            raise HomeAssistantError("Déverrouillage refusé : confirmez cette action depuis le Portal.")
-        if message != "command_action_lock" and self.data and self.data.get("action_lock") == "on":
-            raise HomeAssistantError("Commandes refusées : le verrou d’actions du Portal est activé.")
-
+        ensure_command_allowed(message, command, self.data.get("action_lock") if self.data else None)
         await self.transport.async_send_command(message, command)
+
+
+class MeshPortalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """État poussé par un Portal du maillage ; les entités restent rattachées à son portal_id."""
+
+    availability_estimated = False
+
+    def __init__(self, hass: HomeAssistant, entry, client: MeshClient, portal_id: str) -> None:
+        self.entry = entry
+        self.mesh = client
+        self.portal_id = portal_id
+        self.transport: PortalTransport = MeshTransport(client, portal_id)
+        super().__init__(hass, logger=_LOGGER, name=f"HubPortal {portal_id[:8]}", update_interval=None)
+        self.data = client.portal_data(portal_id)
+
+    @property
+    def unique_prefix(self) -> str:
+        return self.portal_id
+
+    @property
+    def portal_name(self) -> str:
+        return self.mesh.member_name(self.portal_id)
+
+    @property
+    def last_seen(self) -> datetime | None:
+        return self.data.get("last_seen") if self.data else None
+
+    @property
+    def is_available(self) -> bool:
+        return self.mesh.is_connected(self.portal_id)
+
+    @callback
+    def handle_mesh_update(self) -> None:
+        data = self.mesh.portal_data(self.portal_id)
+        end_at = dt_util.parse_datetime(str(data.get("timer_end") or ""))
+        if end_at:
+            data["timer_remaining"] = max(0, int((end_at - dt_util.utcnow()).total_seconds() + 0.999))
+        self.async_set_updated_data(data)
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        return self.mesh.portal_data(self.portal_id)
+
+    async def async_send_command(self, message: str, command: Any = None) -> None:
+        ensure_command_allowed(message, command, self.data.get("action_lock") if self.data else None)
+        await self.transport.async_send_command(message, command)
+
+
+def portal_coordinators(hass: HomeAssistant, entry) -> list[Any]:
+    """Coordinators d'une entrée : un seul pour v1, un par Portal pour le maillage."""
+    if CONF_NETWORK_ID in entry.data:
+        return list(hass.data[DOMAIN]["meshes"][entry.entry_id]["portals"].values())
+    return [hass.data[DOMAIN]["coordinators"][entry.entry_id]]
 
 
 @dataclass

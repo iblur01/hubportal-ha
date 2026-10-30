@@ -6,16 +6,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .coordinator import portal_coordinators
 from .entity import HubPortalEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = hass.data[DOMAIN]["coordinators"][entry.entry_id]
+    coordinators = portal_coordinators(hass, entry)
     async_add_entities(
         [
-            PortalSwitch(coordinator, "ecran", "Écran"),
-            PortalSwitch(coordinator, "verrou_actions", "Verrou d’actions"),
+            PortalSwitch(coordinator, kind, name)
+            for coordinator in coordinators
+            for kind, name in (("ecran", "Écran"), ("verrou_actions", "Verrou d’actions"))
         ]
     )
 

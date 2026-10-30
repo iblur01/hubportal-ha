@@ -48,6 +48,20 @@ Ces services ciblent le maître courant. Aucun service média de groupe n’est 
 
 Le build mobile_app actuel ne fournit pas de heartbeat dédié ni d’accusé de réception des commandes ordinaires. `Disponibilité` est donc une estimation basée sur la fraîcheur des entités source, et un appel `notify` réussi prouve uniquement que HA a accepté l’appel. La demande de jumelage expire après 120 secondes; si tous les Portals refusent ou restent silencieux, aucune entrée n’est créée. Les commandes médias directes et les commandes HTTP nécessitent une API Portal à ajouter ultérieurement; voir [`docs/PORTAL_API_REQUESTS.md`](docs/PORTAL_API_REQUESTS.md) et [`docs/CONTRACT.md`](docs/CONTRACT.md).
 
+## Maillage Portal (contrat v2)
+
+Les Portals qui publient `_hubportal._tcp` avec la clé `proto` forment un maillage pair à pair. HA y est un membre authentifié **non votant** : il n'élit pas, ne compte pas dans le quorum et son arrêt n'a aucun effet sur le maillage.
+
+1. HA découvre le Portal (ou saisissez son adresse dans le formulaire, port 8447) et propose « Rejoindre le maillage ».
+2. Le config flow affiche un **code à 6 chiffres**. Comparez-le avec celui du Portal et confirmez dans HA qu'il est identique (sans cette confirmation, rien n'est créé), puis acceptez sur un Portal. Si les codes diffèrent, ne confirmez pas.
+3. HA crée un device par Portal (entités v1 par Portal) et un device « Maillage HubPortal » avec le maître courant et l'epoch en diagnostic.
+
+Les services `hubportal.timer_start` et `hubportal.timer_cancel` acceptent `foyer: maillage` (ou le `network_id`) et sont envoyés au maître; sans maître, ils échouent avec « Pas de maître ». Les commandes d'une entité vont au Portal concerné.
+
+La clé réseau et l'identité de HA sont dans les données de l'entrée de configuration (jamais dans les états, journaux ou diagnostics) : quiconque lit le stockage de HA peut agir comme membre du maillage.
+
+**Migration depuis v1.** Les entrées `mobile_app`/`notify` existantes continuent de fonctionner et un Portal sans `proto` reste sur ce transport. Après avoir rejoint le maillage, les entités ont de nouveaux identifiants : adaptez vos automatisations puis supprimez l'entrée v1 du Portal. Détails, format de fil et limites : [`docs/CONTRACT.md`](docs/CONTRACT.md). Le mDNS ne traverse pas un réseau Docker en bridge ni un VLAN.
+
 ## Développement
 
 ```sh

@@ -45,3 +45,14 @@ class MobileAppTransport:
         except Exception as err:
             # Ne pas recopier les détails d’exception : certains transports les remplissent de secrets.
             raise HomeAssistantError(f"Échec de transport pour {message}.") from err
+
+
+class MeshTransport:
+    """Transport v2 : commande ciblée vers un Portal du maillage, sans nouvelle tentative."""
+
+    def __init__(self, client, portal_id: str) -> None:
+        self.client = client
+        self.portal_id = portal_id
+
+    async def async_send_command(self, message: str, command: Any = None) -> None:
+        await self.client.async_command(self.portal_id, message, command)

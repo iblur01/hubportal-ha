@@ -11,6 +11,8 @@ from .coordinator import FoyerGroup
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    if "network_id" in entry.data:
+        return
     foyer_group = hass.data[DOMAIN]["groups"][entry.data["foyer"]]
     if foyer_group.selector_owner != entry.entry_id:
         return

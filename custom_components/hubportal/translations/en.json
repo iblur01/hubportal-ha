@@ -7,12 +7,26 @@
         "data": {
           "foyer": "Household identifier",
           "priority": "Starting priority (lower comes first)",
-          "master_timeout": "Seconds without updates before automatic failover"
+          "master_timeout": "Seconds without updates before automatic failover",
+          "mesh_host": "Address of a mesh Portal (optional, replaces automatic discovery)"
+        }
+      },
+      "mesh_confirm": {
+        "title": "Join the HubPortal mesh",
+        "description": "Portal {name} was discovered. Home Assistant will join its mesh as a non-voting member. A 6-digit code will appear here: compare it with the one on the Portal, then accept on the Portal."
+      },
+      "mesh_code": {
+        "title": "Compare the code",
+        "description": "Comparison code: {code}. Portal {portal} must show exactly the same code. If the codes differ, do not confirm.",
+        "data": {
+          "codes_match": "Both codes are identical"
         }
       }
     },
     "progress": {
-      "waiting_for_portal": "Waiting for one of the {portal_count} discovered Portals to accept. Other requests stay open until an acceptance or expiration."
+      "waiting_for_portal": "Waiting for one of the {portal_count} discovered Portals to accept. Other requests stay open until an acceptance or expiration.",
+      "connecting_portal": "Opening TLS to the Portal and sending the admission request…",
+      "waiting_for_accept": "Code confirmed: {code}. Now accept the request on Portal {portal}. Expires 120 seconds after the request started."
     },
     "error": {
       "service_mobile_app_requis": "The service must be a notify.mobile_app_* service.",
@@ -28,26 +42,85 @@
       "pairing_transport_error": "The pairing request could not be delivered to any Portal.",
       "pairing_cancelled": "The pairing request was cancelled.",
       "group_creation_failed": "A Portal accepted, but Home Assistant could not create every household entry.",
-      "import_data_missing": "The secondary Portal data is missing."
+      "import_data_missing": "The secondary Portal data is missing.",
+      "not_mesh": "This Portal does not advertise a mesh (no proto): it stays served by mobile_app.",
+      "proto_unsupported": "Unsupported mesh version: update this Portal or the integration.",
+      "mesh_refused": "The Portal declined or closed the admission request.",
+      "mesh_timeout": "No Portal accepted before the request expired.",
+      "mesh_unreachable": "Portal unreachable on port 8447 (check network, mDNS, Docker/VLAN).",
+      "mesh_mismatch": "Inconsistent Portal answer (fingerprint, network or signature): admission cancelled.",
+      "mesh_codes_differ": "The codes do not match or were not confirmed: admission cancelled."
     }
   },
   "options": {
-    "step": { "init": { "title": "HubPortal options", "data": { "command_timeout": "Maximum notify call timeout (seconds)" } } }
+    "step": {
+      "init": {
+        "title": "HubPortal options",
+        "data": {
+          "command_timeout": "Maximum notify call timeout (seconds)"
+        }
+      }
+    }
   },
   "entity": {
-    "switch": { "ecran": { "name": "Screen" }, "verrou_actions": { "name": "Action lock" } },
-    "number": { "luminosite": { "name": "Brightness" }, "minuteur_duree": { "name": "Timer duration" } },
-    "button": { "minuteur_demarrer": { "name": "Start timer" }, "minuteur_annuler": { "name": "Cancel timer" } },
-    "sensor": {
-      "minuteur": { "name": "Timer" },
-      "minuteur_fin": { "name": "Timer end" },
-      "minuteur_restant": { "name": "Timer remaining" },
-      "disponibilite": { "name": "Availability" }
+    "switch": {
+      "ecran": {
+        "name": "Screen"
+      },
+      "verrou_actions": {
+        "name": "Action lock"
+      }
     },
-    "select": { "maitre": { "name": "Master" } }
+    "number": {
+      "luminosite": {
+        "name": "Brightness"
+      },
+      "minuteur_duree": {
+        "name": "Timer duration"
+      }
+    },
+    "button": {
+      "minuteur_demarrer": {
+        "name": "Start timer"
+      },
+      "minuteur_annuler": {
+        "name": "Cancel timer"
+      }
+    },
+    "sensor": {
+      "minuteur": {
+        "name": "Timer"
+      },
+      "minuteur_fin": {
+        "name": "Timer end"
+      },
+      "minuteur_restant": {
+        "name": "Timer remaining"
+      },
+      "disponibilite": {
+        "name": "Availability"
+      },
+      "maillage_maitre": {
+        "name": "Mesh master"
+      },
+      "maillage_epoch": {
+        "name": "Mesh epoch"
+      }
+    },
+    "select": {
+      "maitre": {
+        "name": "Master"
+      }
+    }
   },
   "services": {
-    "timer_start": { "name": "Start shared timer", "description": "Start the timer on the household master Portal." },
-    "timer_cancel": { "name": "Cancel shared timer", "description": "Cancel the timer on the household master Portal." }
+    "timer_start": {
+      "name": "Start shared timer",
+      "description": "Start the timer on the household master Portal."
+    },
+    "timer_cancel": {
+      "name": "Cancel shared timer",
+      "description": "Cancel the timer on the household master Portal."
+    }
   }
 }

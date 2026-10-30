@@ -7,12 +7,26 @@
         "data": {
           "foyer": "Identifiant du foyer",
           "priority": "Priorité de base (plus petite = préférée)",
-          "master_timeout": "Silence avant bascule automatique (secondes)"
+          "master_timeout": "Silence avant bascule automatique (secondes)",
+          "mesh_host": "Adresse d’un Portal du maillage (optionnel, remplace la découverte automatique)"
+        }
+      },
+      "mesh_confirm": {
+        "title": "Rejoindre le maillage HubPortal",
+        "description": "Le Portal {name} a été découvert. Home Assistant va rejoindre son maillage comme membre non votant. Un code à 6 chiffres s’affichera ici : comparez-le avec celui du Portal, puis acceptez sur le Portal."
+      },
+      "mesh_code": {
+        "title": "Comparer le code",
+        "description": "Code de comparaison : {code}. Le Portal {portal} doit afficher exactement le même code. Si les codes diffèrent, ne confirmez pas.",
+        "data": {
+          "codes_match": "Les deux codes sont identiques"
         }
       }
     },
     "progress": {
-      "waiting_for_portal": "En attente de l’accord d’un des {portal_count} Portals détectés. Les autres demandes restent ouvertes jusqu’à un accord ou leur expiration."
+      "waiting_for_portal": "En attente de l’accord d’un des {portal_count} Portals détectés. Les autres demandes restent ouvertes jusqu’à un accord ou leur expiration.",
+      "connecting_portal": "Connexion TLS au Portal et envoi de la demande d’admission…",
+      "waiting_for_accept": "Code confirmé : {code}. Acceptez maintenant la demande sur le Portal {portal}. Expire dans 120 secondes depuis le début de la demande."
     },
     "error": {
       "service_mobile_app_requis": "Le service doit être un service notify.mobile_app_*.",
@@ -28,35 +42,85 @@
       "pairing_transport_error": "La demande de jumelage n’a pu être envoyée à aucun Portal.",
       "pairing_cancelled": "La demande de jumelage a été annulée.",
       "group_creation_failed": "L’accord a été reçu, mais Home Assistant n’a pas pu créer toutes les entrées du foyer.",
-      "import_data_missing": "Les données du Portal secondaire sont absentes."
+      "import_data_missing": "Les données du Portal secondaire sont absentes.",
+      "not_mesh": "Ce Portal ne publie pas de maillage (pas de proto) : il reste servi par mobile_app.",
+      "proto_unsupported": "Version de maillage non prise en charge : mettez à jour ce Portal ou l’intégration.",
+      "mesh_refused": "Le Portal a refusé ou fermé la demande d’admission.",
+      "mesh_timeout": "Aucune acceptation sur un Portal avant l’expiration.",
+      "mesh_unreachable": "Portal injoignable sur le port 8447 (vérifiez réseau, mDNS, Docker/VLAN).",
+      "mesh_mismatch": "Réponse du Portal incohérente (empreinte, réseau ou signature) : admission annulée.",
+      "mesh_codes_differ": "Les codes ne correspondent pas, ou ils n’ont pas été confirmés : admission annulée."
     }
   },
   "options": {
-    "step": { "init": { "title": "Options HubPortal", "data": { "command_timeout": "Délai maximal d’un appel notify (secondes)" } } }
+    "step": {
+      "init": {
+        "title": "Options HubPortal",
+        "data": {
+          "command_timeout": "Délai maximal d’un appel notify (secondes)"
+        }
+      }
+    }
   },
   "entity": {
     "switch": {
-      "ecran": { "name": "Écran" },
-      "verrou_actions": { "name": "Verrou d’actions" }
+      "ecran": {
+        "name": "Écran"
+      },
+      "verrou_actions": {
+        "name": "Verrou d’actions"
+      }
     },
     "number": {
-      "luminosite": { "name": "Luminosité" },
-      "minuteur_duree": { "name": "Minuteur durée" }
+      "luminosite": {
+        "name": "Luminosité"
+      },
+      "minuteur_duree": {
+        "name": "Minuteur durée"
+      }
     },
     "button": {
-      "minuteur_demarrer": { "name": "Minuteur démarrer" },
-      "minuteur_annuler": { "name": "Minuteur annuler" }
+      "minuteur_demarrer": {
+        "name": "Minuteur démarrer"
+      },
+      "minuteur_annuler": {
+        "name": "Minuteur annuler"
+      }
     },
     "sensor": {
-      "minuteur": { "name": "Minuteur" },
-      "minuteur_fin": { "name": "Minuteur fin" },
-      "minuteur_restant": { "name": "Minuteur restant" },
-      "disponibilite": { "name": "Disponibilité" }
+      "minuteur": {
+        "name": "Minuteur"
+      },
+      "minuteur_fin": {
+        "name": "Minuteur fin"
+      },
+      "minuteur_restant": {
+        "name": "Minuteur restant"
+      },
+      "disponibilite": {
+        "name": "Disponibilité"
+      },
+      "maillage_maitre": {
+        "name": "Maître du maillage"
+      },
+      "maillage_epoch": {
+        "name": "Epoch du maillage"
+      }
     },
-    "select": { "maitre": { "name": "Maître" } }
+    "select": {
+      "maitre": {
+        "name": "Maître"
+      }
+    }
   },
   "services": {
-    "timer_start": { "name": "Démarrer le minuteur partagé", "description": "Démarre le minuteur du Portal maître du foyer." },
-    "timer_cancel": { "name": "Annuler le minuteur partagé", "description": "Annule le minuteur du Portal maître du foyer." }
+    "timer_start": {
+      "name": "Démarrer le minuteur partagé",
+      "description": "Démarre le minuteur du Portal maître du foyer."
+    },
+    "timer_cancel": {
+      "name": "Annuler le minuteur partagé",
+      "description": "Annule le minuteur du Portal maître du foyer."
+    }
   }
 }

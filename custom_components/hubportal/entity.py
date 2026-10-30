@@ -18,9 +18,9 @@ class HubPortalEntity(CoordinatorEntity[PortalCoordinator]):
         super().__init__(coordinator)
         self._key = key
         self._attr_name = name
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
+        self._attr_unique_id = f"{coordinator.unique_prefix}_{key}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+            identifiers={(DOMAIN, coordinator.unique_prefix)},
             name=coordinator.portal_name,
             manufacturer="Portal Hub",
             model="Portal",
@@ -28,4 +28,6 @@ class HubPortalEntity(CoordinatorEntity[PortalCoordinator]):
 
     @property
     def available(self) -> bool:
-        return self.coordinator.last_update_success
+        return self.coordinator.last_update_success and (
+            not hasattr(self.coordinator, "mesh") or self.coordinator.is_available
+        )

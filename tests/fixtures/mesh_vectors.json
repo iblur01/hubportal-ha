@@ -1,0 +1,145 @@
+{
+  "commit": [
+    {
+      "expected": "be45cb2605bf36bebde684841a28f0fd43c69850a3dce5fedba69928ee3a8991",
+      "nonce": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "expected": "fc2e2c73072bfa2bda03ff9307472debd3cc8105028a8a9e235e35ba8d2e37f4",
+      "nonce": "101112131415161718191a1b1c1d1e1f"
+    }
+  ],
+  "hello_auth": [
+    {
+      "expected": "13ffb6e6b30b90a6d8d5a440ae0e6c120032e1d114f7c4150e8e40087fb47539",
+      "fp_local": "df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3",
+      "fp_peer": "29140abb0db82a58bb2c3bd3fd615c2ee319acd48a06d269e94dce7b6d72b9ea",
+      "nonce_peer": "000102030405060708090a0b0c0d0e0f",
+      "portal_id": "portal-a"
+    },
+    {
+      "expected": "d5ac4af55964db5ddb1d80eedf33ec9534fbd14b6a00fc0c44d47d4593b43a97",
+      "fp_local": "29140abb0db82a58bb2c3bd3fd615c2ee319acd48a06d269e94dce7b6d72b9ea",
+      "fp_peer": "df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3",
+      "nonce_peer": "101112131415161718191a1b1c1d1e1f",
+      "portal_id": "ha-1"
+    }
+  ],
+  "json_compact": [
+    {
+      "expected": "{}",
+      "input": {}
+    },
+    {
+      "expected": "{\"a\":2,\"b\":1}",
+      "input": {
+        "a": 2,
+        "b": 1
+      }
+    },
+    {
+      "expected": "{\"big\":9007199254740993,\"n\":0,\"name\":\"Cuisine é 日本 😀\",\"neg\":-7}",
+      "input": {
+        "big": 9007199254740993,
+        "n": 0,
+        "name": "Cuisine é 日本 😀",
+        "neg": -7
+      }
+    },
+    {
+      "expected": "{\"flag\":true,\"off\":false,\"z\":{\"x\":null,\"y\":[3,2,1]}}",
+      "input": {
+        "flag": true,
+        "off": false,
+        "z": {
+          "x": null,
+          "y": [
+            3,
+            2,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "expected": "{\"cmd\":\"command_screen_on\",\"data\":null,\"target\":\"*\"}",
+      "input": {
+        "cmd": "command_screen_on",
+        "data": null,
+        "target": "*"
+      }
+    }
+  ],
+  "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "mac": [
+    {
+      "epoch": 4,
+      "from": "portal-a",
+      "json_compact": "{\"index\":12,\"leader\":\"portal-a\"}",
+      "mac": "67a4b562ae2f4802bd68cbe71c37bb3fc4d751ec6ff396f162de985a1561f81e",
+      "p": {
+        "index": 12,
+        "leader": "portal-a"
+      },
+      "p_sha256": "d00d6f5aa10a52722634eac37b0f64059187015caa815f7b4cfe291fdd6ebceb",
+      "seq": 1793395200000,
+      "t": "heartbeat",
+      "ts": 1793395200
+    },
+    {
+      "epoch": 4,
+      "from": "ha-1",
+      "json_compact": "{\"cmd\":\"command_screen_brightness_level\",\"data\":128,\"target\":\"portal-a\"}",
+      "mac": "90b32541b80efe1c81f53114f28726b919913766ab9e056760f4cb068a74ede6",
+      "p": {
+        "cmd": "command_screen_brightness_level",
+        "data": 128,
+        "target": "portal-a"
+      },
+      "p_sha256": "86ae94cb69a065662332f4a864a2965d763aec60a2bb723dae0193a8016ce81f",
+      "seq": 5,
+      "t": "command",
+      "ts": 1793395201
+    },
+    {
+      "epoch": 1,
+      "from": "portal-a",
+      "json_compact": "{\"epoch\":1,\"key\":\"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\",\"members\":[{\"fp\":\"df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3\",\"ha\":false,\"name\":\"Salon 日本\",\"portal_id\":\"portal-a\"}],\"network_id\":\"net-é\"}",
+      "mac": "061eddd27bc421482c91f2817863605bc10df87f750dc891ce260d30092d980c",
+      "p": {
+        "epoch": 1,
+        "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "members": [
+          {
+            "fp": "df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3",
+            "ha": false,
+            "name": "Salon 日本",
+            "portal_id": "portal-a"
+          }
+        ],
+        "network_id": "net-é"
+      },
+      "p_sha256": "55caed4df58dc6936b615e637daf59375ff082c0faa8ebfcf3ac2055ef5e4274",
+      "seq": 9,
+      "t": "join_accept",
+      "ts": 1793395202
+    }
+  ],
+  "notes": "Généré par scripts/gen_mesh_vectors.py. json_compact : sort_keys, séparateurs (',', ':'), UTF-8 brut. Les hash et HMAC portent sur les octets UTF-8. La clé réseau est décodée de l'hexadécimal. Les nonces et empreintes sont décodés de l'hexadécimal avant d'être hachés (SAS, commit).",
+  "sas": [
+    {
+      "expected": "730221",
+      "fp_admitter": "df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3",
+      "fp_requester": "29140abb0db82a58bb2c3bd3fd615c2ee319acd48a06d269e94dce7b6d72b9ea",
+      "nonce_admitter": "101112131415161718191a1b1c1d1e1f",
+      "nonce_requester": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "expected": "055509",
+      "fp_admitter": "29140abb0db82a58bb2c3bd3fd615c2ee319acd48a06d269e94dce7b6d72b9ea",
+      "fp_requester": "df28d1e0cf3075b1bcafe8b72c9e4ba688c33bc139eaafb0f658a9af71898cc3",
+      "nonce_admitter": "000102030405060708090a0b0c0d0e0f",
+      "nonce_requester": "101112131415161718191a1b1c1d1e1f"
+    }
+  ]
+}

@@ -7,12 +7,26 @@
         "data": {
           "foyer": "Identifiant du foyer",
           "priority": "Priorité de base (plus petite = préférée)",
-          "master_timeout": "Silence avant bascule automatique (secondes)"
+          "master_timeout": "Silence avant bascule automatique (secondes)",
+          "mesh_host": "Address of a mesh Portal (optional, replaces automatic discovery)"
+        }
+      },
+      "mesh_confirm": {
+        "title": "Join the HubPortal mesh",
+        "description": "Portal {name} was discovered. Home Assistant will join its mesh as a non-voting member. A 6-digit code will appear here: compare it with the one on the Portal, then accept on the Portal."
+      },
+      "mesh_code": {
+        "title": "Compare the code",
+        "description": "Comparison code: {code}. Portal {portal} must show exactly the same code. If the codes differ, do not confirm.",
+        "data": {
+          "codes_match": "Both codes are identical"
         }
       }
     },
     "progress": {
-      "waiting_for_portal": "En attente de l’accord d’un des {portal_count} Portals détectés. Les autres demandes restent ouvertes jusqu’à un accord ou leur expiration."
+      "waiting_for_portal": "En attente de l’accord d’un des {portal_count} Portals détectés. Les autres demandes restent ouvertes jusqu’à un accord ou leur expiration.",
+      "connecting_portal": "Opening TLS to the Portal and sending the admission request…",
+      "waiting_for_accept": "Code confirmed: {code}. Now accept the request on Portal {portal}. Expires 120 seconds after the request started."
     },
     "error": {
       "service_mobile_app_requis": "Le service doit être un service notify.mobile_app_*.",
@@ -28,14 +42,23 @@
       "pairing_transport_error": "La demande de jumelage n’a pu être envoyée à aucun Portal.",
       "pairing_cancelled": "La demande de jumelage a été annulée.",
       "group_creation_failed": "L’accord a été reçu, mais Home Assistant n’a pas pu créer toutes les entrées du foyer.",
-      "import_data_missing": "Les données du Portal secondaire sont absentes."
+      "import_data_missing": "Les données du Portal secondaire sont absentes.",
+      "not_mesh": "This Portal does not advertise a mesh (no proto): it stays served by mobile_app.",
+      "proto_unsupported": "Unsupported mesh version: update this Portal or the integration.",
+      "mesh_refused": "The Portal declined or closed the admission request.",
+      "mesh_timeout": "No Portal accepted before the request expired.",
+      "mesh_unreachable": "Portal unreachable on port 8447 (check network, mDNS, Docker/VLAN).",
+      "mesh_mismatch": "Inconsistent Portal answer (fingerprint, network or signature): admission cancelled.",
+      "mesh_codes_differ": "The codes do not match or were not confirmed: admission cancelled."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Options HubPortal",
-        "data": { "command_timeout": "Délai maximal d’un appel notify (secondes)" }
+        "data": {
+          "command_timeout": "Délai maximal d’un appel notify (secondes)"
+        }
       }
     }
   }

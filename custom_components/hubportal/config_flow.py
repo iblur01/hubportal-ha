@@ -6,6 +6,7 @@ import asyncio
 import logging
 import re
 import secrets
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Any
@@ -16,22 +17,38 @@ from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from .const import (
     CONF_DEVICE_ID,
+    CONF_EPOCH,
     CONF_FOYER,
+    CONF_HA_CERT,
+    CONF_HA_FP,
+    CONF_HA_ID,
+    CONF_HA_KEY,
+    CONF_HA_NAME,
     CONF_MASTER_TIMEOUT,
+    CONF_MEMBERS,
+    CONF_MESH_HOST,
+    CONF_NETWORK_ID,
+    CONF_NETWORK_KEY,
     CONF_NOTIFY_SERVICE,
     CONF_PORTAL_NAME,
     CONF_PRIORITY,
     DEFAULT_MASTER_TIMEOUT,
     DOMAIN,
+    MESH_ADMISSION_TIMEOUT,
+    MESH_PORT,
+    MESH_PROTO,
     SOURCES,
 )
+from .mesh import AdmissionRefused, MeshAdmission, MeshRejected, build_ssl_context, generate_identity, open_socket
 
 _LOGGER = logging.getLogger(__name__)
+SUPPORTED_PROTO = {MESH_PROTO}
 
 PAIRING_DECISION_EVENT = "hubportal_pairing_decision"
 PAIRING_CONTRACT_VERSION = 1
@@ -114,10 +131,26 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._request_id: str | None = None
         self._expires_at: datetime | None = None
         self._pairing_result: dict[str, str] | None = None
+        # maillage (contrat v2)
+        self._host = ""
+        self._port = MESH_PORT
+        self._portal_label = ""
+        self._network_id: str | None = None
+        self._identity: dict[str, str] | None = None
+        self._admission: MeshAdmission | None = None
+        self._mesh_task: asyncio.Task | None = None
+        self._mesh_error: str | None = None
+        self._mesh_code = ""
+        self._mesh_confirmed = False
+        self._mesh_result: dict[str, Any] | None = None
 
     async def async_step_user(self, user_input=None):
         """Demande le foyer et les paramètres partagés avant d'envoyer le défi."""
         errors = {}
+        if user_input is not None and user_input.get(CONF_MESH_HOST, "").strip():
+            self._host = user_input[CONF_MESH_HOST].strip()
+            self._port = MESH_PORT
+            return await self.async_step_mesh_connect()
         portals = discover_portals(self.hass)
         if not portals:
             return self.async_abort(reason="no_portals_found")
@@ -133,7 +166,7 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "service_mobile_app_requis"
 
         if user_input is not None:
-            foyer = _slug(user_input[CONF_FOYER])
+            foyer = _slug(user_input.get(CONF_FOYER, ""))
             if not foyer:
                 errors[CONF_FOYER] = "foyer_invalide"
             elif missing_notify:
@@ -162,6 +195,7 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
+                vol.Optional(CONF_MESH_HOST): str,
                 vol.Required(CONF_FOYER, default="maison"): str,
                 vol.Required(CONF_PRIORITY, default=100): vol.All(int, vol.Range(min=0, max=10000)),
                 vol.Required(CONF_MASTER_TIMEOUT, default=DEFAULT_MASTER_TIMEOUT): vol.All(
@@ -170,6 +204,170 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    # ------------------------------------------------------------ maillage (contrat v2)
+
+    async def async_step_zeroconf(self, discovery_info):
+        """Découverte `_hubportal._tcp` : seuls les Portals qui publient `proto` rejoignent le maillage."""
+        props = discovery_info.properties
+        portal_id, network_id, proto = props.get("portal_id"), props.get("network_id"), props.get("proto")
+        if not portal_id or not network_id or not proto:
+            return self.async_abort(reason="not_mesh")
+        try:
+            if int(proto) not in SUPPORTED_PROTO:
+                return self.async_abort(reason="proto_unsupported")
+        except ValueError:
+            return self.async_abort(reason="proto_unsupported")
+        port = discovery_info.port or MESH_PORT
+        host = str(discovery_info.host)
+        known = next((e for e in self.hass.config_entries.async_entries(DOMAIN) if e.unique_id == network_id), None)
+        if known is not None:
+            await self._note_announcement(known, str(portal_id), host, port)
+            return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(network_id)
+        self._abort_if_unique_id_configured()
+        self._host, self._port, self._network_id = host, port, network_id
+        self._portal_label = str(portal_id)[:8]
+        self.context["title_placeholders"] = {"name": self._portal_label}
+        return await self.async_step_mesh_confirm()
+
+    async def _note_announcement(self, entry, portal_id: str, host: str, port: int) -> None:
+        """Annonce mDNS d'un membre connu : la nouvelle adresse n'est retenue que si elle présente l'empreinte épinglée.
+
+        HA essaie l'adresse annoncée; si la connexion TLS montre l'empreinte épinglée, l'adresse est enregistrée.
+        Sinon l'ancienne adresse est conservée et l'annonce est signalée (journal, événement). L'empreinte n'est
+        jamais modifiée par une annonce.
+        """
+        members = {pid: dict(m) for pid, m in entry.data.get(CONF_MEMBERS, {}).items()}
+        current = members.get(portal_id)
+        if current is None or (current.get("host"), current.get("port")) == (host, port):
+            return
+        verified = False
+        try:
+            context = await self.hass.async_add_executor_job(
+                build_ssl_context, entry.data[CONF_HA_CERT], entry.data[CONF_HA_KEY]
+            )
+            ws, fingerprint = await open_socket(async_get_clientsession(self.hass), host, port, context)
+            await ws.close()
+            verified = fingerprint == current.get("fp")
+        except Exception:  # noqa: BLE001 - adresse injoignable ou TLS invalide : annonce non retenue
+            verified = False
+        if verified:
+            current.update(host=host, port=port)
+            self.hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_MEMBERS: members})
+            return
+        _LOGGER.info("Annonce mDNS non vérifiée pour le Portal %s : adresse inchangée", portal_id)
+        self.hass.bus.async_fire("hubportal_mesh_announce", {"portal_id": portal_id, "host": host, "port": port})
+
+    async def async_step_mesh_confirm(self, user_input=None):
+        if user_input is not None:
+            return await self.async_step_mesh_connect()
+        return self.async_show_form(
+            step_id="mesh_confirm", description_placeholders={"name": self._portal_label or self._host}
+        )
+
+    async def _async_open_admission(self) -> None:
+        try:
+            self._identity = await self.hass.async_add_executor_job(generate_identity)
+            context = await self.hass.async_add_executor_job(
+                build_ssl_context, self._identity["cert_pem"], self._identity["key_pem"]
+            )
+            self._admission = MeshAdmission(
+                async_get_clientsession(self.hass), self._host, self._port, self._identity, "Home Assistant"
+            )
+            self._mesh_code = await self._admission.async_connect(context)
+        except AdmissionRefused:
+            self._mesh_error = "mesh_refused"
+        except MeshRejected:
+            self._mesh_error = "mesh_mismatch"
+        except Exception:  # noqa: BLE001 - jamais le détail d'une exception réseau
+            self._mesh_error = "mesh_unreachable"
+
+    async def async_step_mesh_connect(self, user_input=None):
+        if self._mesh_task is None:
+            self._mesh_task = self.hass.async_create_task(self._async_open_admission())
+        if not self._mesh_task.done():
+            return self.async_show_progress(
+                step_id="mesh_connect", progress_action="connecting_portal", progress_task=self._mesh_task
+            )
+        self._mesh_task = None
+        return self.async_show_progress_done(next_step_id="mesh_failed" if self._mesh_error else "mesh_code")
+
+    async def _async_wait_accept(self) -> None:
+        assert self._admission is not None
+        try:
+            await self._admission.async_confirm()
+            remaining = MESH_ADMISSION_TIMEOUT - (time.monotonic() - self._admission.started)
+            self._mesh_result = await self._admission.async_wait_accept(max(1.0, remaining))
+        except AdmissionRefused:
+            self._mesh_error = "mesh_refused"
+        except TimeoutError:
+            self._mesh_error = "mesh_timeout"
+        except MeshRejected:
+            self._mesh_error = "mesh_mismatch"
+        except Exception:  # noqa: BLE001
+            self._mesh_error = "mesh_unreachable"
+
+    async def async_step_mesh_code(self, user_input=None):
+        """Affiche le code (non secret) et exige que l'utilisateur confirme qu'il est identique à celui du Portal."""
+        if user_input is not None:
+            if user_input.get("codes_match") is not True:
+                return self.async_abort(reason="mesh_codes_differ")
+            self._mesh_confirmed = True
+            return await self.async_step_mesh_wait()
+        return self.async_show_form(
+            step_id="mesh_code",
+            data_schema=vol.Schema({vol.Required("codes_match", default=False): bool}),
+            description_placeholders={"code": self._mesh_code, "portal": self._portal_label or self._host},
+        )
+
+    async def async_step_mesh_wait(self, user_input=None):
+        """Attend l'acceptation sur un Portal; jamais avant la confirmation du code par l'utilisateur."""
+        if not self._mesh_confirmed:
+            return self.async_abort(reason="mesh_codes_differ")
+        if self._mesh_task is None:
+            self._mesh_task = self.hass.async_create_task(self._async_wait_accept())
+        if not self._mesh_task.done():
+            return self.async_show_progress(
+                step_id="mesh_wait",
+                progress_action="waiting_for_accept",
+                description_placeholders={"code": self._mesh_code, "portal": self._portal_label or self._host},
+                progress_task=self._mesh_task,
+            )
+        self._mesh_task = None
+        return self.async_show_progress_done(next_step_id="mesh_failed" if self._mesh_error else "mesh_finish")
+
+    async def async_step_mesh_failed(self, user_input=None):
+        return self.async_abort(reason=self._mesh_error or "mesh_unreachable")
+
+    async def async_step_mesh_finish(self, user_input=None):
+        result, identity = self._mesh_result, self._identity
+        if not self._mesh_confirmed:
+            return self.async_abort(reason="mesh_codes_differ")
+        assert result is not None and identity is not None
+        if self._network_id and result["network_id"] != self._network_id:
+            return self.async_abort(reason="mesh_mismatch")
+        await self.async_set_unique_id(result["network_id"])
+        self._abort_if_unique_id_configured()
+        data = {
+            CONF_NETWORK_ID: result["network_id"],
+            CONF_NETWORK_KEY: result["key"],
+            CONF_EPOCH: result["epoch"],
+            CONF_HA_ID: identity["portal_id"],
+            CONF_HA_NAME: "Home Assistant",
+            CONF_HA_CERT: identity["cert_pem"],
+            CONF_HA_KEY: identity["key_pem"],
+            CONF_HA_FP: identity["fp"],
+            CONF_MEMBERS: result["members"],
+        }
+        return self.async_create_entry(title="Maillage HubPortal", data=data)
+
+    @callback
+    def async_remove(self) -> None:
+        if self._admission is not None:
+            self.hass.async_create_task(self._admission.async_close())
+        if self._mesh_task is not None:
+            self._mesh_task.cancel()
 
     async def _async_pairing_progress(self) -> dict[str, str]:
         """Conserve le résultat du progress task avant la reprise du flow."""
@@ -275,9 +473,7 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # L'ordre part du Portal qui a accepté, puis d'un ordre stable par identifiant mobile_app.
         ordered_ids = [accepted_id, *sorted(device_id for device_id in self._portals if device_id != accepted_id)]
         existing_ids = {
-            entry.unique_id
-            for entry in self.hass.config_entries.async_entries(DOMAIN)
-            if entry.unique_id is not None
+            entry.unique_id for entry in self.hass.config_entries.async_entries(DOMAIN) if entry.unique_id is not None
         }
         entries = [
             _entry_data(self._foyer, self._portals[device_id], self._priority + index, self._master_timeout)
@@ -309,9 +505,7 @@ class HubPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for portal in self._portals.values():
             try:
                 await asyncio.wait_for(
-                    self.hass.services.async_call(
-                        "notify", portal[CONF_NOTIFY_SERVICE], service_data, blocking=True
-                    ),
+                    self.hass.services.async_call("notify", portal[CONF_NOTIFY_SERVICE], service_data, blocking=True),
                     timeout=NOTIFY_TIMEOUT,
                 )
             except TimeoutError:

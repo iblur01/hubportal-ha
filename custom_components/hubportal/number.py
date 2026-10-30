@@ -6,15 +6,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .coordinator import portal_coordinators
 from .entity import HubPortalEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = hass.data[DOMAIN]["coordinators"][entry.entry_id]
+    coordinators = portal_coordinators(hass, entry)
     async_add_entities(
         [
-            PortalNumber(coordinator, "luminosite", "Luminosité", 0, 100, 1),
-            PortalNumber(coordinator, "minuteur_duree", "Minuteur durée", 1, 86399, 1),
+            PortalNumber(coordinator, *spec)
+            for coordinator in coordinators
+            for spec in (("luminosite", "Luminosité", 0, 100, 1), ("minuteur_duree", "Minuteur durée", 1, 86399, 1))
         ]
     )
 
@@ -38,12 +40,12 @@ class PortalNumber(HubPortalEntity, NumberEntity):
                 return float(self.coordinator.data.get("brightness") or 0)
             except (TypeError, ValueError):
                 return 0
-        return self.coordinator.hass.data[DOMAIN]["timer_durations"].get(self.coordinator.entry.entry_id, 300)
+        return self.coordinator.hass.data[DOMAIN]["timer_durations"].get(self.coordinator.unique_prefix, 300)
 
     async def async_set_native_value(self, value: float) -> None:
         bounded = int(min(self._attr_native_max_value, max(self._attr_native_min_value, value)))
         if self.kind == "minuteur_duree":
-            self.coordinator.hass.data[DOMAIN]["timer_durations"][self.coordinator.entry.entry_id] = bounded
+            self.coordinator.hass.data[DOMAIN]["timer_durations"][self.coordinator.unique_prefix] = bounded
             self.async_write_ha_state()
             return
         await self.coordinator.async_send_command("command_screen_brightness_level", round(bounded * 255 / 100))

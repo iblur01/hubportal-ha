@@ -36,3 +36,28 @@ SOURCES = {
     "timer_end": CONF_TIMER_END_ENTITY,
     "timer_remaining": CONF_TIMER_REMAINING_ENTITY,
 }
+
+# Maillage (contrat v2)
+CONF_NETWORK_ID = "network_id"
+CONF_NETWORK_KEY = "network_key"
+CONF_HA_ID = "ha_portal_id"
+CONF_HA_NAME = "ha_name"
+CONF_HA_CERT = "ha_cert_pem"
+CONF_HA_KEY = "ha_key_pem"
+CONF_HA_FP = "ha_fp"
+CONF_MEMBERS = "members"
+CONF_EPOCH = "epoch"
+CONF_MESH_HOST = "mesh_host"
+MESH_PORT = 8447
+MESH_PATH = "/mesh"
+MESH_PROTO = 1
+MESH_SERVICE_TYPE = "_hubportal._tcp.local."
+MESH_TS_WINDOW = 60
+MESH_LEASE_SECONDS = 3.0
+MESH_HANDSHAKE_TIMEOUT = 10.0
+MESH_CONNECT_TIMEOUT = 10.0
+MESH_SEND_TIMEOUT = 5.0
+MESH_BACKOFF_BASE = 1.0
+MESH_BACKOFF_CAP = 60.0
+MESH_ADMISSION_TIMEOUT = 120
+MESH_ALERT_EVENT = "hubportal_mesh_alert"
