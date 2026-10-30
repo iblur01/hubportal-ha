@@ -90,6 +90,11 @@ def hello_auth(key: bytes, nonce_peer: str, portal_id: str, fp_local: str, fp_pe
     return hmac.new(key, body.encode(), hashlib.sha256).hexdigest()
 
 
+def _proves_key(expected: str, *candidates: Any) -> bool:
+    """Vrai si l'une des preuves reçues (chaînes) égale l'attendue, en temps constant."""
+    return any(isinstance(c, str) and hmac.compare_digest(expected, c) for c in candidates)
+
+
 def nonce_commit(nonce: str) -> str:
     """Engagement sur un nonce d'admission : SHA-256 hex des octets décodés du nonce (16 octets)."""
     return hashlib.sha256(bytes.fromhex(nonce)).hexdigest()
@@ -611,8 +616,9 @@ class MeshClient:
                     await self._send(ws, "hello", {"proto": MESH_PROTO, "nonce": my_nonce, "fp": my_fp, "auth": reply})
                     sent_auth = True
                 else:
+                    # auth_prev : le maître prouve aussi l'ancienne clé (rattrapage après une rotation).
                     expected = hello_auth(self._key, my_nonce, portal_id, peer_fp, my_fp)
-                    if not hmac.compare_digest(expected, str(auth)):
+                    if not _proves_key(expected, auth, p.get("auth_prev")):
                         raise MeshRejected("auth")
                     peer_ok = True
 
@@ -629,11 +635,16 @@ class MeshClient:
             self._on_command(portal_id, env)
 
     def _on_command(self, sender: str, env: dict[str, Any]) -> None:
-        """Seule commande reçue par HA : mesh.rotate_key, du maître courant, signée avec l'ancienne clé."""
+        """Seule commande reçue par HA : mesh.rotate_key, signée avec l'ancienne clé.
+
+        Vient du maître courant. Sans maître courant (bail expiré pendant l'absence de HA), un membre Portal connu peut
+        relayer le rattrapage : le MAC prouve qu'il détient l'ancienne clé (même règle que le maillage Qt).
+        """
         p = env["p"]
         if p.get("cmd") != "mesh.rotate_key" or p.get("target") != self._identity["portal_id"]:
             return
-        if sender != self.master:
+        relay = self.master is None and sender in self.members
+        if sender != self.master and not relay:
             self._count_reject(sender, "not_master")
             return
         data = p.get("data")

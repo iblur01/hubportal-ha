@@ -588,9 +588,11 @@ async def test_admission_rejette_relais_d_empreinte(hass: HomeAssistant, portals
 
 
 async def test_admission_manuelle_par_adresse(hass: HomeAssistant, portals) -> None:
-    """Saisie d'adresse (Docker/VLAN sans mDNS) : le formulaire utilisateur accepte mesh_host."""
-    # Le formulaire user exige des Portals mobile_app; sans eux il abandonne (comportement v1 conservé).
+    """Saisie d'adresse (Docker/VLAN sans mDNS) : le formulaire utilisateur accepte mesh_host, même sans mobile_app."""
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "user"
+    # Soumettre le formulaire v1 sans Portal mobile_app et sans adresse : abandon explicite (comportement v1 conservé).
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"foyer": "maison"})
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "no_portals_found"
 
 
@@ -632,6 +634,33 @@ async def test_rotate_key_refusee_hors_maitre_ou_mac_invalide(hass: HomeAssistan
     await asyncio.sleep(0.1)
     assert client._key == KEY and entry.data["network_key"] == KEY_HEX and client.epoch == 1
     assert client.is_connected(a.portal_id) and a.connections == 1
+
+
+async def test_membre_absent_rattrape_la_rotation_sans_readmission(hass: HomeAssistant, portals) -> None:
+    a = await portals()
+    entry, client = await _setup(hass, [a])
+    await wait_for(lambda: client.is_connected(a.portal_id))
+    new_key = secrets.token_bytes(32)
+    ha_id = client._identity["portal_id"]
+    # HA absent pendant la rotation : a connaît la nouvelle clé et prouve l'ancienne (auth_prev) au retour de HA.
+    a.prev_key, a.key = KEY, new_key
+    for ws in list(a._all):
+        await ws.close()
+    await wait_for(lambda: a.connections >= 2)
+    await wait_for(lambda: client.is_connected(a.portal_id) and len(a.authed) == 1)  # hello accepté via auth_prev
+    assert entry.data["network_key"] == KEY_HEX  # pas encore la nouvelle clé
+    # Sans maître courant, a relaie la rotation signée avec l'ancienne clé : HA la prend.
+    assert client.master is None
+    await a.send(
+        "command",
+        {"target": ha_id, "cmd": "mesh.rotate_key", "data": {"key": new_key.hex(), "epoch": 2}},
+        key=KEY,
+        epoch=1,
+    )
+    await wait_for(lambda: entry.data["network_key"] == new_key.hex() and entry.data["epoch"] == 2)
+    # sessions rouvertes avec la nouvelle clé
+    await wait_for(lambda: client.is_connected(a.portal_id) and len(a.authed) == 1)
+    assert client.rejected.get("not_master") is None
 
 
 async def test_members_ajout_puis_retrait_sans_readmission(hass: HomeAssistant, portals) -> None:

@@ -110,7 +110,7 @@ WebSocket sur TLS, chemin `/mesh`, port 8447. Enveloppe JSON :
 
 `fp` est le SHA-256 en hexadécimal minuscule du certificat DER. HA présente un certificat client auto-signé (généré à l'admission) pour que le Portal obtienne son `fp`. `cmd` reprend les noms du tableau v1 (`command_screen_on`, `command_screen_off`, `command_screen_brightness_level` valeur 0–255, `command_action_lock`, `command_timer_start`, `command_timer_cancel`) et `data` leur valeur.
 
-**`hello` en deux temps** (enveloppe avec `mac` vide : le champ `auth` lie la clé, les nonces et les empreintes; un mac valide est aussi toléré en réception). `auth = HMAC(clé, "hello|" + nonce_pair + "|" + portal_id + "|" + fp_local + "|" + fp_pair)` exige le nonce du pair. Chaque côté envoie donc d'abord un `hello` avec son `nonce` et `auth` vide, puis, en recevant celui du pair, un second `hello` avec `auth`. La session est établie quand HA a envoyé le sien et vérifié celui du pair. L'empreinte TLS observée doit égaler `fp` et l'empreinte épinglée.
+**`hello` en deux temps** (enveloppe avec `mac` vide : le champ `auth` lie la clé, les nonces et les empreintes; un mac valide est aussi toléré en réception). `auth = HMAC(clé, "hello|" + nonce_pair + "|" + portal_id + "|" + fp_local + "|" + fp_pair)` exige le nonce du pair. Chaque côté envoie donc d'abord un `hello` avec son `nonce` et `auth` vide, puis, en recevant celui du pair, un second `hello` avec `auth`. La session est établie quand HA a envoyé le sien et vérifié celui du pair. Après une rotation, le `hello` d'un maître peut porter en plus `auth_prev` (HMAC avec l'ancienne clé) : HA accepte le hello si `auth` ou `auth_prev` égale sa preuve, ce qui permet à un membre absent lors de la rotation de se reconnecter. L'empreinte TLS observée doit égaler `fp` et l'empreinte épinglée.
 
 **`state`** n'est pas défini par ARCHITECTURE §16bis : c'est une extension convenue avec le lot Qt. Les valeurs sont celles des capteurs v1 (`screen`/`action_lock` : `on` ou `off`; `timer` : `idle`, `active`, `ringing`; `timer_end` : ISO 8601; `timer_remaining` : secondes).
 
@@ -144,7 +144,7 @@ Suivi du maître : HA retient `leader` et l'epoch du dernier heartbeat de maîtr
 
 ## Rotation de clé
 
-Quand un membre est retiré, le maître envoie à chaque membre restant, HA compris, `t="command"` avec `p = {target: <portal_id de HA>, cmd: "mesh.rotate_key", data: {key: <hex>, epoch: N+1}}`, signé avec l'**ancienne** clé. HA l'accepte seulement si `from` est le maître courant (bail valide), si le mac est valide avec l'ancienne clé, si `target` est HA et si `epoch` n'est pas inférieure à l'epoch connue. Il remplace alors la clé et l'epoch dans `config_entry.data`, ferme toutes ses sessions et se reconnecte avec la nouvelle clé. Toute autre origine, un mac invalide ou une autre cible sont ignorés (compteurs `not_master`, `mac`, `format`). La nouvelle clé n'est jamais journalisée.
+Quand un membre est retiré, le maître envoie à chaque membre restant, HA compris, `t="command"` avec `p = {target: <portal_id de HA>, cmd: "mesh.rotate_key", data: {key: <hex>, epoch: N+1}}`, signé avec l'**ancienne** clé. HA l'accepte seulement si `from` est le maître courant (bail valide), si le mac est valide avec l'ancienne clé, si `target` est HA et si `epoch` n'est pas inférieure à l'epoch connue. Si HA n'a plus de maître courant (bail expiré pendant son absence), il accepte aussi cette commande d'un membre Portal connu : le mac prouve la détention de l'ancienne clé (rattrapage relayé). Il remplace alors la clé et l'epoch dans `config_entry.data`, ferme toutes ses sessions et se reconnecte avec la nouvelle clé. Toute autre origine, un mac invalide ou une autre cible sont ignorés (compteurs `not_master`, `mac`, `format`). La nouvelle clé n'est jamais journalisée.
 
 ## Liste des membres
 
@@ -164,7 +164,7 @@ Backoff **full jitter** : attente aléatoire dans `[0, min(60 s, 1 s × 2^essai)
 ## Limites
 
 - Les adresses viennent de la découverte mDNS (ou de l'adresse saisie pour l'admetteur); sans mDNS (Docker en bridge, VLAN), la saisie d'adresse n'est proposée que par le formulaire utilisateur lorsqu'au moins un Portal mobile_app est détecté.
-- Si HA est hors ligne pendant une rotation de clé, il ne reçoit pas `mesh.rotate_key` et doit être ré-admis.
+- Si HA est hors ligne pendant une rotation de clé, il rattrape la nouvelle clé à son retour (`auth_prev`, relais). Deux rotations manquées, ou un changement de maître pendant l'absence, imposent une ré-admission.
 - Un Portal ajouté via `members` apparaît dans HA (device, entités) mais sa connexion attend son adresse, fournie par la découverte mDNS (ou une nouvelle annonce). Un `members` ne fournit ni adresse ni certificat.
 - `seq` est vérifié par session : un message capturé n'est rejeté sur une autre session que par la fenêtre `ts` de ±60 s.
 - Aucune confirmation d'exécution des commandes; état et maître reflètent les derniers messages reçus.

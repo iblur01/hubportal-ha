@@ -27,6 +27,7 @@ async def wait_for(condition, timeout: float = 3.0) -> None:
 class FakePortal:
     def __init__(self, key: bytes, identity: dict[str, str] | None = None, epoch: int = 1) -> None:
         self.key = key
+        self.prev_key: bytes | None = None  # ancienne clé après une rotation : preuve auth_prev (rattrapage)
         self.identity = identity or generate_identity()
         self.portal_id = self.identity["portal_id"]
         self.fp = self.identity["fp"]
@@ -142,12 +143,16 @@ class FakePortal:
                 p = env["p"]
                 if not p["auth"]:
                     auth = hello_auth(self.key, p["nonce"], self.portal_id, self.fp, p["fp"])
-                    await ws.send_str(
-                        json.dumps(self.envelope("hello", {"proto": 1, "nonce": nonce, "fp": self.fp, "auth": auth}))
-                    )
+                    reply = {"proto": 1, "nonce": nonce, "fp": self.fp, "auth": auth}
+                    if self.prev_key is not None:
+                        reply["auth_prev"] = hello_auth(self.prev_key, p["nonce"], self.portal_id, self.fp, p["fp"])
+                    await ws.send_str(json.dumps(self.envelope("hello", reply)))
                 else:
                     expected = hello_auth(self.key, nonce, env["from"], p["fp"], self.fp)
-                    if expected == p["auth"]:
+                    previous = self.prev_key is not None and hello_auth(
+                        self.prev_key, nonce, env["from"], p["fp"], self.fp
+                    )
+                    if expected == p["auth"] or previous == p["auth"]:
                         self.authed.append(ws)
         if ws in self.authed:
             self.authed.remove(ws)
