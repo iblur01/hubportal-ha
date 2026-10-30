@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connecter un Portal",
+        "description": "Choisissez un Portal déjà enregistré dans mobile_app. Les capteurs et le service notify sont détectés automatiquement.",
+        "data": {
+          "foyer": "Identifiant du foyer",
+          "mobile_device_id": "Portal découvert",
+          "priority": "Priorité (plus petite = préférée)",
+          "master_timeout": "Silence avant bascule automatique (secondes)"
+        }
+      }
+    },
+    "error": {
+      "service_mobile_app_requis": "Le service doit être un service notify.mobile_app_*.",
+      "nom_portal_invalide": "Le nom doit contenir des lettres ou des chiffres."
+    },
+    "abort": {
+      "already_configured": "Ce Portal est déjà configuré dans ce foyer.",
+      "no_portals_found": "Aucun Portal détecté. Vérifiez que mobile_app est configuré et que le Portal a publié ses capteurs.",
+      "device_not_found": "Ce Portal n’est plus présent dans mobile_app."
+    }
+  },
+  "options": {
+    "step": { "init": { "title": "Options HubPortal", "data": { "command_timeout": "Délai maximal d’un appel notify (secondes)" } } }
+  },
+  "entity": {
+    "switch": {
+      "ecran": { "name": "Écran" },
+      "verrou_actions": { "name": "Verrou d’actions" }
+    },
+    "number": {
+      "luminosite": { "name": "Luminosité" },
+      "minuteur_duree": { "name": "Minuteur durée" }
+    },
+    "button": {
+      "minuteur_demarrer": { "name": "Minuteur démarrer" },
+      "minuteur_annuler": { "name": "Minuteur annuler" }
+    },
+    "sensor": {
+      "minuteur": { "name": "Minuteur" },
+      "minuteur_fin": { "name": "Minuteur fin" },
+      "minuteur_restant": { "name": "Minuteur restant" },
+      "disponibilite": { "name": "Disponibilité" }
+    },
+    "select": { "maitre": { "name": "Maître" } }
+  },
+  "services": {
+    "timer_start": { "name": "Démarrer le minuteur partagé", "description": "Démarre le minuteur du Portal maître du foyer." },
+    "timer_cancel": { "name": "Annuler le minuteur partagé", "description": "Annule le minuteur du Portal maître du foyer." }
+  }
+}

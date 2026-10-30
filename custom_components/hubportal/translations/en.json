@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a Portal",
+        "description": "Choose a Portal already registered with mobile_app. Sensors and the notify service are discovered automatically.",
+        "data": {
+          "foyer": "Household identifier",
+          "mobile_device_id": "Discovered Portal",
+          "priority": "Priority (lower comes first)",
+          "master_timeout": "Seconds without updates before automatic failover"
+        }
+      }
+    },
+    "error": {
+      "service_mobile_app_requis": "The service must be a notify.mobile_app_* service.",
+      "nom_portal_invalide": "The name must contain letters or numbers."
+    },
+    "abort": {
+      "already_configured": "This Portal is already configured for this household.",
+      "no_portals_found": "No Portal found. Check that mobile_app is set up and the Portal has published its sensors.",
+      "device_not_found": "This Portal is no longer present in mobile_app."
+    }
+  },
+  "options": {
+    "step": { "init": { "title": "HubPortal options", "data": { "command_timeout": "Maximum notify call timeout (seconds)" } } }
+  },
+  "entity": {
+    "switch": { "ecran": { "name": "Screen" }, "verrou_actions": { "name": "Action lock" } },
+    "number": { "luminosite": { "name": "Brightness" }, "minuteur_duree": { "name": "Timer duration" } },
+    "button": { "minuteur_demarrer": { "name": "Start timer" }, "minuteur_annuler": { "name": "Cancel timer" } },
+    "sensor": {
+      "minuteur": { "name": "Timer" },
+      "minuteur_fin": { "name": "Timer end" },
+      "minuteur_restant": { "name": "Timer remaining" },
+      "disponibilite": { "name": "Availability" }
+    },
+    "select": { "maitre": { "name": "Master" } }
+  },
+  "services": {
+    "timer_start": { "name": "Start shared timer", "description": "Start the timer on the household master Portal." },
+    "timer_cancel": { "name": "Cancel shared timer", "description": "Cancel the timer on the household master Portal." }
+  }
+}

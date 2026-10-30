@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hubportal-ha"
+version = "0.1.0"
+description = "Intégration Home Assistant pour les Portals HubPortal"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-homeassistant-custom-component>=0.13.200",
+  "ruff>=0.14",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
